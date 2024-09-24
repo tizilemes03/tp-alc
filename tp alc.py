@@ -8,7 +8,11 @@ Created on Fri Sep 20 16:08:59 2024
 import numpy as np
 import pandas as pd
 
-data = pd.read_excel("E:/ciencias de datos/2024/alc/tp/matrizlatina2011_compressed_0.xlsx",sheet_name=1)
+#data = pd.read_excel("E:/ciencias de datos/2024/alc/tp/matrizlatina2011_compressed_0.xlsx",sheet_name=1)
+data = pd.read_excel("/home/Estudiante/Documentos/tp-alc-main/matrizlatina2011_compressed_0.xlsx",sheet_name=1)
+"""
+Crear funcion que me generalice todo esto
+"""
 
 #####
 Cri = data.drop([col for col in data.columns if not col.startswith("CRI") and not col.startswith("Country_iso3")], axis = 1)
@@ -46,7 +50,6 @@ NicCri = NicCri.reset_index(drop=True).drop([col for col in NicCri.columns if co
 NicCri
 npNicCri = NicCri.to_numpy()
 npNicCri
-
 #####
 
 #P1 es Costa Rica y P2 es Nicaragua
@@ -112,7 +115,7 @@ ACri
 
 ACriNic = npCriNic @ np.linalg.inv(IdentidadNIC)
 ACriNic
-#####
+#####pdf
 ANicCri = npNicCri @ np.linalg.inv(IdentidadCRI)
 ANicCri 
 #####
@@ -158,7 +161,7 @@ def diferencialShock(d):
     
     #A resulta ser el diferencialD que crea a d' junto al d introducido.
     
-    dPrima = d + A
+    dPrima = d + dif
     
     return dPrima
         
@@ -175,5 +178,42 @@ newP1CRI
 #plantear si usar la matriz A tambien, hacerlo despues
 
 """LA IDEA ES CREAR UNA FUNCION IGUALMENTE QUE GENERALICE TODO LO ANTERIOR, 
-POR FAVOR HACERLA MAÑANA LUNES!!!!!!!"""
+POR FAVOR HACERLA MAÑANA LUNES!!!!!!!""" #no sucedio ahreE:/ciencias de datos/2024/alc/tp/matrizlatina2011_compressed_0.xlsx"
+
+#Ahora si, considero el modelo de la matriz A de la ecuacion 4
+#la demanda trabaja desde la fila 1 a la 40 sobre la region de Costa rica, y de la 41 a la 80 sobre Nicaragua
+#EL SECTOR 
+def demandaDeA(A,p1,p2):
+    idA = np.eye(A.shape[0])
+    pTotal= np.vstack((p1,p2)) 
+    d = (idA - A) @ pTotal
+    return d 
+
+dA = demandaDeA(A,nptotalCRI,nptotalNIC)
+dA
+
+pTotal= np.vstack((nptotalCRI,nptotalNIC)) 
+
+def diferencialShock(A,d):
+    n = d.shape[0]
+    m= d.shape[1]
+    idA = np.eye(A.shape[0])
+    #construyo al diferencial
+    dif = np.zeros((n,m))
+    #B = np.zeros((n,m))
+    
+    dif[4] = d[4] * -0.1
+    dif[5] = d[5] * 0.033
+    dif[6] = d[6] * 0.033
+    dif[7] = d[7] * 0.033
+    
+    #A resulta ser el diferencialD que crea a d' junto al d introducido.
+    
+    dPrima = d + dif
+    #veo si lo pongo o no
+    pTotalPrima = np.linalg.inv(idA - A)@dPrima 
+    
+    return pTotalPrima
+
+nuevoPTotal = diferencialShock(A,dA)
 
