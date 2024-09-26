@@ -102,7 +102,7 @@ print(np.linalg.inv(C))
 
 #FUNCIONES DEL PUNTO 7
 
-data = pd.read_excel("E:/ciencias de datos/2024/alc/tp/matrizlatina2011_compressed_0.xlsx",sheet_name=1)
+data = pd.read_excel("matrizlatina2011_compressed_0.xlsx",sheet_name=1)
 
 def generadorMatrizZ(data,PAIS1,PAIS2):
     #PAIS 1 corresponde a filas y PAIS 2 corresponde a columnas
