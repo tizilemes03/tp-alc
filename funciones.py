@@ -104,11 +104,6 @@ print(np.linalg.inv(C))
 
 data = pd.read_excel("E:/ciencias de datos/2024/alc/tp/matrizlatina2011_compressed_0.xlsx",sheet_name=1)
 
-"""
-Para poder crear la matriz de flujo de capitales intrarregionales e interregionales de Costa Rica y Nicaragua
-seguimos utilizamos los siguientes métodos de las librerias propiciadas.
-"""
-
 def generadorMatrizZ(data,PAIS1,PAIS2):
     #PAIS 1 corresponde a filas y PAIS 2 corresponde a columnas
     Columnas = data.drop([col for col in data.columns if not col.startswith(PAIS2) and not col.startswith("Country_iso3")], axis = 1)
@@ -117,24 +112,12 @@ def generadorMatrizZ(data,PAIS1,PAIS2):
     
     return Matriz
 
-CriCri = generadorMatrizZ(data,"CRI","NIC")
-
-NicNic = generadorMatrizZ(data,"NIC","NIC")
-
-CriNic = generadorMatrizZ(data,"CRI","NIC")
-
-NicCri = generadorMatrizZ(data,"NIC","CRI")
-
 def produccionesPais(data,PAIS):
     total = data.drop([col for col in data.columns if not col.startswith("Output") and not col.startswith("Country_iso3")], axis = 1)
     totalPAIS = total[(total["Country_iso3"]==PAIS)].reset_index(drop=True)
     totalPAIS = totalPAIS.drop([col for col in totalPAIS.columns if col.startswith("Country")],axis = 1)
     totalPAIS = totalPAIS.to_numpy()
     return totalPAIS
-
-pCRI = produccionesPais(data,"CRI")
-
-pNIC = produccionesPais(data,"NIC")
 
 #para armar Z y luego A usamos lo siguiente:
 
@@ -144,12 +127,8 @@ def ZGrande(ZP1P1,ZP1P2,ZP2P1,ZP2P2):
     ZMatriz = np.vstack((arriba,abajo))
     return ZMatriz
 
-"""Esta es la matriz Z de flujo de capitales de 
-manera intrarregional e interregional para los sectores 
-P1 = Costa Rica y P2 = Nicaragua"""
-Z = ZGrande(CriCri,CriNic,NicCri,NicNic)
-
 ####
+#SIMULACION DE SHOCK
 #la diagonal tiene los valores del total de capitales por cada fila de esta.
 def IdxP(pPAIS):   
   n = pPAIS.shape[0]
@@ -163,68 +142,77 @@ def IdxP(pPAIS):
 
   return(Id)
 
-#####
-IdPCRI = IdxP(pCRI)
-#####
-IdPNIC = IdxP(pNIC)
 
 ##### 
-def AInsumoProductoMultiRegional(ZP1P1,ZP1P2,ZP2P1,ZP2P2,IdP1,IdP2):
+def AInsumoProducto(ZP1P2,Id_InvP2):
+    AP1P2 = ZP1P2 @ Id_InvP2
+    AP1P2 = AP1P2.to_numpy()
     
-    AP1P1 = ZP1P1 @ np.linalg.inv(IdP1)
+    return AP1P2
     
-    AP1P2 = ZP1P2 @ np.linalg.inv(IdP2)
+
+def AInsumoProductoMultiRegional(ZP1P1,ZP1P2,ZP2P1,ZP2P2,IdP1_inv,IdP2_inv):
     
-    AP2P1 = ZP2P1 @ np.linalg.inv(IdP1)
+    #volvemos a crearlas pero dentro de la función a cada matriz de relaciones entre dos paises
+    AP1P1 = ZP1P1 @ IdP1_inv
     
-    AP2P2 = ZP2P2 @ np.linalg.inv(IdP2)
+    AP1P2 = ZP1P2 @ IdP2_inv
     
+    AP2P1 = ZP2P1 @ IdP1_inv
+    
+    AP2P2 = ZP2P2 @ IdP2_inv
+    
+    #Pegamos las matrices
     AUp = np.hstack((AP1P1,AP1P2))
     
     Adown = np.hstack((AP2P1,AP2P2))
-    
+    #Formamos la matriz de insumo producto que nos interesa ver
     A = np.vstack((AUp,Adown))
     
     return A
     
     
-A = AInsumoProductoMultiRegional(CriCri,CriNic,NicCri,NicNic,IdPCRI,IdPNIC)
-
 #AHORA PARA EL PUNTO DEL SHOCK
 #la demanda trabaja desde la fila 1 a la 40 sobre la region de Costa rica, y de la 41 a la 80 sobre Nicaragua
-#EL SECTOR 
-def demandaDeA(A,p1,p2):
-    idA = np.eye(A.shape[0])
-    pTotal= np.vstack((p1,p2)) 
-    d = (idA - A) @ pTotal
-    return d 
+#USAMOS LA ECUACION DE LEONTIEF PARA MATRICES DE DOS REGIONES COMO SI FUERA RESOLUCION DE SISTEMAS
 
-dA = demandaDeA(A,nptotalCRI,nptotalNIC)
-dA
-
-pTotal= np.vstack((nptotalCRI,nptotalNIC)) 
-
-def diferencialShock(A,d):
-    n = d.shape[0]
-    m= d.shape[1]
-    idA = np.eye(A.shape[0])
-    #construyo al diferencial
-    dif = np.zeros((n,m))
-    #B = np.zeros((n,m))
+def demandaDeA(AP1P1,AP1P2,AP2P1,AP2P2,pPAIS1,pPAIS2):
     
-    dif[4] = d[4] * -0.1
-    dif[5] = d[5] * 0.033
-    dif[6] = d[6] * 0.033
-    dif[7] = d[7] * 0.033
+    idAP1 = np.eye(AP2P2.shape[0])
     
-    #A resulta ser el diferencialD que crea a d' junto al d introducido.
+    idAP2 = np.eye(AP2P2.shape[0])
     
-    dPrima = d + dif
-    #veo si lo pongo o no
-    pTotalPrima = np.linalg.inv(idA - A)@dPrima 
+    #la demanda vendra como se ve en la ecuación 4 de la Matriz de Leontief como
+    #dos vectores traspuestos con 40 valores cada uno de ellos
     
-    return pTotalPrima
+    dP1 = ((idAP1 - AP1P1) @ pPAIS1) + (-AP1P2 @ pPAIS2) #demanda de los sectores del país 1
+    
+    dP2 = (-AP2P2 @ pPAIS1)  + ((idAP2 - AP2P1) @ pPAIS2) #demanda de los sectores del pais 2
+    
+    dtotal = np.vstack((dP1,dP2)) #demanda total vector traspuesto de los dos paises y sus 40 sectores de producción cada uno
+    
+    return dtotal
 
-nuevoPTotal = diferencialShock(A,dA)
 
+def diferencialShock(demanda,shocks):
+    #construyo a dPrima 
+    copiaD = demanda.copy()
+    n = demanda.shape[0]
+    m= demanda.shape[1]
+    deltaD = np.zeros((n,m))
+    # Ahora generamos a la variación de la demanda como la resta de la 
+    #nueva demanda alterada y la demanda despejada de los valores que partimos    
+    for i in range(len(shocks)):
+        deltaD[[shocks[i][0]-1]] = copiaD[[shocks[i][0]-1]] - (copiaD[[shocks[i][0]-1]] * shocks[i][1])
+           
+    #obtenemos a la variación de la demanda (COMPLETA, tanto de Costa Rica como Nicaragua)
+    return deltaD
+
+
+def deltaP(inv_idMenosA,delta_d):
+    #Esta es la forma de generar a deltaP
+    deltaP = inv_idMenosA @ delta_d
+    #La diferencia es que en el modelo interregional la variable inv_idMenosA
+    #resulta ser suma y producto de otras matrices, a diferencia del modelo intrarregional...
+    return deltaP
 
